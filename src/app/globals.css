@@ -1,26 +1,79 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ============================================================
+   Lock In — Design Tokens (SPEC.md §4)
+   "The Ledger" — quiet, minimal, dark
+   ============================================================ */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* --- Colors --- */
+  --color-app-bg: #262624;
+  --color-card: #2A2927;
+  --color-card-alt: #302F2D;
+  --color-border-default: rgba(255, 255, 255, 0.08);
+  --color-border-hover: #EDEBE4;
+  --color-text-primary: #F5F3EE;
+  --color-text-secondary: #9C9990;
+  --color-text-muted: #7A7870;
+
+  /* --- Life Area dot colors (functional only) --- */
+  --color-area-personal: #8B8B8B;
+  --color-area-agency: #6C9BCF;
+  --color-area-phone: #C084FC;
+  --color-area-fyp: #F59E42;
+  --color-area-job: #4ADE80;
+  --color-area-gym: #F87171;
+  --color-area-sports: #38BDF8;
+  --color-area-university: #FBBF24;
+
+  /* --- Fonts --- */
+  --font-display: var(--font-fraunces);
+  --font-body: var(--font-inter);
+  --font-data: var(--font-ibm-plex-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* --- Base styles --- */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-app-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+}
+
+/* ============================================================
+   Hover Border — The signature interaction (SPEC.md §4)
+   Hairline border → brightens to off-white on hover.
+   Applied as a single shared utility class.
+   ============================================================ */
+.hover-border {
+  border: 1px solid var(--color-border-default);
+  border-radius: 10px;
+  transition: border-color 0.15s ease;
+}
+
+.hover-border:hover {
+  border-color: var(--color-border-hover);
+}
+
+/* --- Focus ring for accessibility --- */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-border-hover);
+  outline-offset: 2px;
+}
+
+/* --- Scrollbar styling (dark theme) --- */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-text-muted);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
 }
