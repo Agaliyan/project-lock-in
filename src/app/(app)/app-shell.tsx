@@ -10,7 +10,7 @@ interface AppShellProps {
 }
 
 const NAV_ITEMS = [
-  { href: "/", label: "Home" },
+  { href: "/", label: "Right Now" },
   { href: "/schedule", label: "Schedule" },
   { href: "/life-areas", label: "Life Areas" },
   { href: "/tasks", label: "All Tasks" },

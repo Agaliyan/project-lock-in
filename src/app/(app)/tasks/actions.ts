@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateAll } from "../revalidate";
 import { createClient } from "@/lib/supabase/server";
 import type { Subtask, TaskStatus } from "@/lib/types/database";
 
@@ -37,9 +37,7 @@ export async function createTask(formData: FormData) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/life-areas");
-  revalidatePath(`/life-areas/${life_area_id}`);
-  revalidatePath("/tasks");
+  revalidateAll();
   return { error: null };
 }
 
@@ -77,7 +75,23 @@ export async function updateTask(formData: FormData) {
   if (status !== null) {
     updates.status = status;
     if (status === "done") {
-      updates.completed_at = new Date().toISOString();
+      const nowStr = new Date().toISOString();
+      updates.completed_at = nowStr;
+      
+      // Compute actual_duration_minutes if it has a confirmed_at
+      const { data: currentTask } = await supabase
+        .from("tasks")
+        .select("confirmed_at")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .single();
+        
+      if (currentTask?.confirmed_at) {
+        const confirmedDate = new Date(currentTask.confirmed_at);
+        const completedDate = new Date(nowStr);
+        const diffMs = completedDate.getTime() - confirmedDate.getTime();
+        updates.actual_duration_minutes = Math.max(1, Math.round(diffMs / 60000));
+      }
     }
     if (status === "doing") {
       updates.confirmed_at = new Date().toISOString();
@@ -103,9 +117,7 @@ export async function updateTask(formData: FormData) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/life-areas");
-  revalidatePath("/tasks");
-  revalidatePath(`/tasks/${id}`);
+  revalidateAll();
   return { error: null };
 }
 
@@ -122,8 +134,7 @@ export async function deleteTask(taskId: string) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/life-areas");
-  revalidatePath("/tasks");
+  revalidateAll();
   return { error: null };
 }
 
@@ -163,8 +174,7 @@ export async function duplicateTask(id: string) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/tasks");
-  revalidatePath("/schedule");
+  revalidateAll();
   return { error: null };
 }
 
@@ -181,7 +191,6 @@ export async function deleteTasks(ids: string[]) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/tasks");
-  revalidatePath("/schedule");
+  revalidateAll();
   return { error: null };
 }

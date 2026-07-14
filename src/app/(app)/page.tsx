@@ -1,40 +1,149 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { getTodayStr, getNowTimeStr } from "@/lib/time";
+import { RightNowClient } from "./right-now-client";
 
-export default function HomePage() {
+export default async function RightNowPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  // ── 1. Settings ──
+  const { data: settings } = await supabase
+    .from("settings")
+    .select("timezone, paused_until")
+    .eq("user_id", user.id)
+    .single();
+
+  const timezone = settings?.timezone || "Asia/Colombo";
+  const pausedUntil = settings?.paused_until || null;
+
+  // ── 2. Compute "today" and "now" in the user's timezone ──
+  const now = new Date();
+  const todayStr = getTodayStr(timezone, now);
+  const nowTimeStr = getNowTimeStr(timezone, now);
+
+  // ── 3. Current task — oldest overdue unconfirmed ──
+  // Includes ALL past dates (not just today) so nothing silently falls out
+  // of view when a day rolls over.
+  const { data: currentTaskData } = await supabase
+    .from("tasks")
+    .select("*, life_areas(id, name, color_hex)")
+    .eq("user_id", user.id)
+    .eq("status", "todo")
+    .not("scheduled_date", "is", null)
+    .not("scheduled_time", "is", null)
+    .or(
+      `scheduled_date.lt.${todayStr},and(scheduled_date.eq.${todayStr},scheduled_time.lte.${nowTimeStr})`
+    )
+    .order("scheduled_date", { ascending: true })
+    .order("scheduled_time", { ascending: true })
+    .limit(1);
+
+  const currentTask = currentTaskData?.[0] || null;
+
+  // ── 4. Backlog count — same corrected scope ──
+  const { count: totalOverdue } = await supabase
+    .from("tasks")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("status", "todo")
+    .not("scheduled_date", "is", null)
+    .not("scheduled_time", "is", null)
+    .or(
+      `scheduled_date.lt.${todayStr},and(scheduled_date.eq.${todayStr},scheduled_time.lte.${nowTimeStr})`
+    );
+
+  const backlogCount = Math.max(0, (totalOverdue || 0) - (currentTask ? 1 : 0));
+
+  // ── 5. Later today — for idle state + Up Next ──
+  // Single query, split afterward: first item is idle-state display
+  // (when no current task); remainder is the Up Next list.
+  const { data: laterTodayData } = await supabase
+    .from("tasks")
+    .select("*, life_areas(id, name, color_hex)")
+    .eq("user_id", user.id)
+    .eq("status", "todo")
+    .eq("scheduled_date", todayStr)
+    .gt("scheduled_time", nowTimeStr)
+    .order("scheduled_time", { ascending: true })
+    .limit(4);
+
+  const laterToday = laterTodayData || [];
+
+  let nextUpcomingTask = null;
+  let upNextTasks;
+
+  if (currentTask) {
+    // Current task exists — Up Next is the first 3 later today
+    upNextTasks = laterToday.slice(0, 3);
+  } else {
+    // Idle state — first later-today task shown as informational,
+    // remainder is Up Next
+    nextUpcomingTask = laterToday[0] || null;
+    upNextTasks = laterToday.slice(1, 4);
+  }
+
+  // ── 6. Streak — consecutive days backward from today with confirmed_at ──
+  const { data: confirmedTasks } = await supabase
+    .from("tasks")
+    .select("confirmed_at")
+    .eq("user_id", user.id)
+    .not("confirmed_at", "is", null);
+
+  let streakDays = 0;
+
+  if (confirmedTasks && confirmedTasks.length > 0) {
+    // Build a Set of YYYY-MM-DD dates (in the user's timezone)
+    // where at least one task was confirmed
+    const confirmedDates = new Set(
+      confirmedTasks.map((t) => {
+        const d = new Date(t.confirmed_at!);
+        return new Intl.DateTimeFormat("en-CA", {
+          timeZone: timezone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(d);
+      })
+    );
+
+    // Helper: shift a YYYY-MM-DD string by N days
+    const addDays = (dateStr: string, days: number): string => {
+      const [y, m, d] = dateStr.split("-").map(Number);
+      const date = new Date(y, m - 1, d + days);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    };
+
+    // Count backward from today
+    let checkDate = todayStr;
+    while (confirmedDates.has(checkDate)) {
+      streakDays++;
+      checkDate = addDays(checkDate, -1);
+    }
+  }
+
+  // ── 7. Doing tasks ──
+  const { data: doingTasksData } = await supabase
+    .from("tasks")
+    .select("*, life_areas(id, name, color_hex)")
+    .eq("user_id", user.id)
+    .eq("status", "doing")
+    .order("confirmed_at", { ascending: true });
+
+  const doingTasks = doingTasksData || [];
+
   return (
-    <div className="mx-auto max-w-2xl">
-      <h2 className="font-display text-2xl font-semibold tracking-tight text-text-primary">
-        Home
-      </h2>
-      <p className="mt-2 text-sm text-text-secondary">
-        The &ldquo;Right Now&rdquo; view is coming in a later slice. For now, use the pages below.
-      </p>
-
-      <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Link
-          href="/life-areas"
-          className="hover-border flex flex-col gap-2 bg-card px-5 py-5 transition-colors"
-        >
-          <span className="font-display text-lg font-semibold text-text-primary">
-            Life Areas
-          </span>
-          <span className="text-sm text-text-secondary">
-            Manage your areas and their tasks
-          </span>
-        </Link>
-
-        <Link
-          href="/tasks"
-          className="hover-border flex flex-col gap-2 bg-card px-5 py-5 transition-colors"
-        >
-          <span className="font-display text-lg font-semibold text-text-primary">
-            All Tasks
-          </span>
-          <span className="text-sm text-text-secondary">
-            View and filter every task across all areas
-          </span>
-        </Link>
-      </div>
-    </div>
+    <RightNowClient
+      doingTasks={doingTasks}
+      currentTask={currentTask}
+      backlogCount={backlogCount}
+      nextUpcomingTask={currentTask ? null : nextUpcomingTask}
+      upNextTasks={upNextTasks}
+      streakDays={streakDays}
+      pausedUntil={pausedUntil}
+    />
   );
 }

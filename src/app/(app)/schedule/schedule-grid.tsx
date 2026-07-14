@@ -7,11 +7,13 @@ import { CSS } from "@dnd-kit/utilities";
 import type { TaskWithArea, LifeArea } from "@/lib/types/database";
 import { QuickAddModal } from "@/components/quick-add-modal";
 import { clearWeek, resizeTaskDuration } from "./actions";
+import { getTodayStr, getNowHourMinute } from "@/lib/time";
 
 interface ScheduleGridProps {
   weekStart: string;
   scheduledTasks: TaskWithArea[];
   lifeAreas: Pick<LifeArea, "id" | "name" | "color_hex">[];
+  timezone: string;
 }
 
 // 60px = 1 hour
@@ -39,7 +41,8 @@ function TaskBlock({ task, router }: { task: TaskWithArea, router: any }) {
     left: "4px",
     right: "4px",
     transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.5 : (task.status === "done" ? 0.4 : 1),
+    textDecoration: task.status === "done" ? "line-through" : "none",
     zIndex: isDragging ? 40 : 10,
     backgroundColor: task.life_areas?.color_hex || "#8B8B8B",
     borderRadius: "6px",
@@ -113,8 +116,8 @@ function TaskBlock({ task, router }: { task: TaskWithArea, router: any }) {
         }
       }}
     >
-      <div className="font-semibold leading-tight line-clamp-1">{task.title}</div>
-      <div className="flex items-center gap-1 mt-0.5 opacity-80">
+      <div className={`font-semibold leading-tight line-clamp-1 ${task.status === "done" ? "text-white/60" : ""}`}>{task.title}</div>
+      <div className={`flex items-center gap-1 mt-0.5 opacity-80 ${task.status === "done" ? "text-white/60" : ""}`}>
         <span className="font-data text-[9px] uppercase tracking-wider">{localDuration}m</span>
       </div>
 
@@ -131,7 +134,7 @@ function TaskBlock({ task, router }: { task: TaskWithArea, router: any }) {
   );
 }
 
-function DayColumn({ date, label, tasks, onClickSlot, router }: { date: string, label: string, tasks: TaskWithArea[], onClickSlot: (date: string, hour: number) => void, router: any }) {
+function DayColumn({ date, label, tasks, onClickSlot, router, timezone }: { date: string, label: string, tasks: TaskWithArea[], onClickSlot: (date: string, hour: number) => void, router: any, timezone: string }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${date}`,
   });
@@ -149,7 +152,7 @@ function DayColumn({ date, label, tasks, onClickSlot, router }: { date: string, 
 
   return (
     <div className="flex flex-col border-r border-border-default min-w-[120px]">
-      <div className="sticky top-0 z-20 border-b border-border-default bg-app-bg py-2 text-center text-sm font-medium text-text-secondary">
+      <div className="sticky top-0 z-20 h-10 flex items-center justify-center border-b border-border-default bg-app-bg text-center text-sm font-medium text-text-secondary">
         {label}
       </div>
       <div 
@@ -168,12 +171,16 @@ function DayColumn({ date, label, tasks, onClickSlot, router }: { date: string, 
         ))}
 
         {tasks.map(t => <TaskBlock key={t.id} task={t} router={router} />)}
+
+        {getTodayStr(timezone) === date && (
+          <CurrentTimeLine timezone={timezone} />
+        )}
       </div>
     </div>
   );
 }
 
-function CurrentTimeLine({ weekStart }: { weekStart: string }) {
+function CurrentTimeLine({ timezone }: { timezone: string }) {
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -181,28 +188,14 @@ function CurrentTimeLine({ weekStart }: { weekStart: string }) {
     return () => clearInterval(timer);
   }, []);
 
-  // Check if today falls in the current week
-  const todayStr = now.toISOString().split("T")[0];
-  const start = new Date(weekStart);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 6);
-  const endStr = end.toISOString().split("T")[0];
-
-  if (todayStr < weekStart || todayStr > endStr) return null;
-
-  // Calculate position
-  const dayOffset = (now.getDay() + 6) % 7; // Monday = 0
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const top = (hours * 60 + minutes) * PIXELS_PER_MINUTE;
+  const { hour, minute } = getNowHourMinute(timezone, now);
+  const top = (hour * 60 + minute) * PIXELS_PER_MINUTE;
 
   return (
     <div 
-      className="absolute z-30 pointer-events-none flex items-center"
+      className="absolute z-30 pointer-events-none flex items-center left-0 right-0"
       style={{ 
         top: `${top}px`, 
-        left: `calc(60px + ${dayOffset} * ((100% - 60px) / 7))`, 
-        width: `calc((100% - 60px) / 7)`,
         marginTop: '-4px' 
       }}
     >
@@ -212,7 +205,7 @@ function CurrentTimeLine({ weekStart }: { weekStart: string }) {
   );
 }
 
-export function ScheduleGrid({ weekStart, scheduledTasks, lifeAreas }: ScheduleGridProps) {
+export function ScheduleGrid({ weekStart, scheduledTasks, lifeAreas, timezone }: ScheduleGridProps) {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
   
@@ -236,12 +229,12 @@ export function ScheduleGrid({ weekStart, scheduledTasks, lifeAreas }: ScheduleG
   // Scroll to current hour on mount
   useEffect(() => {
     if (scrollRef.current) {
-      const currentHour = new Date().getHours();
+      const { hour } = getNowHourMinute(timezone, new Date());
       // Scroll to a bit above current hour, capped at 0
-      const targetScroll = Math.max(0, (currentHour - 1) * PIXELS_PER_HOUR);
+      const targetScroll = Math.max(0, (hour - 1) * PIXELS_PER_HOUR);
       scrollRef.current.scrollTop = targetScroll;
     }
-  }, [weekStart]);
+  }, [weekStart, timezone]);
 
   const handleNav = (offsetDays: number) => {
     const newStart = new Date(weekStart);
@@ -328,7 +321,6 @@ export function ScheduleGrid({ weekStart, scheduledTasks, lifeAreas }: ScheduleG
 
           {/* Day columns */}
           <div className="flex flex-1 relative">
-            <CurrentTimeLine weekStart={weekStart} />
             {days.map(day => (
               <DayColumn 
                 key={day.date} 
@@ -337,6 +329,7 @@ export function ScheduleGrid({ weekStart, scheduledTasks, lifeAreas }: ScheduleG
                 tasks={scheduledTasks.filter(t => t.scheduled_date === day.date)}
                 onClickSlot={handleSlotClick}
                 router={router}
+                timezone={timezone}
               />
             ))}
           </div>

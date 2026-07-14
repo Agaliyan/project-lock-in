@@ -38,6 +38,7 @@ export interface Task {
   scheduled_date: string | null;
   scheduled_time: string | null;
   duration_minutes: number | null;
+  actual_duration_minutes: number | null;
   subtasks: Subtask[];
   confirmed_at: string | null;
   completed_at: string | null;
@@ -127,6 +128,7 @@ export interface TaskUpdate {
   scheduled_date?: string | null;
   scheduled_time?: string | null;
   duration_minutes?: number | null;
+  actual_duration_minutes?: number | null;
   subtasks?: Subtask[];
   confirmed_at?: string | null;
   completed_at?: string | null;

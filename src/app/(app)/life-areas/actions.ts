@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateAll } from "../revalidate";
 import { createClient } from "@/lib/supabase/server";
 
 export async function createLifeArea(formData: FormData) {
@@ -32,7 +32,7 @@ export async function createLifeArea(formData: FormData) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/life-areas");
+  revalidateAll();
   return { error: null };
 }
 
@@ -57,8 +57,7 @@ export async function updateLifeArea(formData: FormData) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/life-areas");
-  revalidatePath(`/life-areas/${id}`);
+  revalidateAll();
   return { error: null };
 }
 
@@ -75,7 +74,6 @@ export async function archiveLifeArea(areaId: string) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/life-areas");
-  revalidatePath("/tasks");
+  revalidateAll();
   return { error: null };
 }

@@ -13,6 +13,7 @@ interface ScheduleClientProps {
   unscheduledTasks: TaskWithArea[];
   lifeAreas: Pick<LifeArea, "id" | "name" | "color_hex">[];
   weekStart: string; // YYYY-MM-DD
+  timezone: string;
 }
 
 export function ScheduleClient({
@@ -20,6 +21,7 @@ export function ScheduleClient({
   unscheduledTasks,
   lifeAreas,
   weekStart,
+  timezone,
 }: ScheduleClientProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +115,7 @@ export function ScheduleClient({
             weekStart={weekStart} 
             scheduledTasks={scheduledTasks}
             lifeAreas={lifeAreas}
+            timezone={timezone}
           />
         </div>
       </DndContext>

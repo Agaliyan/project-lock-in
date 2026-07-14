@@ -13,6 +13,14 @@ export default async function SchedulePage({
     redirect("/login");
   }
 
+  const { data: settings } = await supabase
+    .from("settings")
+    .select("timezone")
+    .eq("user_id", user.id)
+    .single();
+
+  const timezone = settings?.timezone || "Asia/Colombo";
+
   // 1. Determine week start (Monday)
   const resolvedParams = await searchParams;
   let weekStart = resolvedParams.week;
@@ -67,6 +75,7 @@ export default async function SchedulePage({
       scheduledTasks={tasksRes.data || []}
       unscheduledTasks={unscheduledRes.data || []}
       lifeAreas={areasRes.data || []}
+      timezone={timezone}
     />
   );
 }

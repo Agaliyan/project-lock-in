@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateAll } from "../revalidate";
 import { createClient } from "@/lib/supabase/server";
 
 export async function updateTaskSchedule(taskId: string, date: string, time: string, durationMinutes: number | null) {
@@ -20,9 +20,7 @@ export async function updateTaskSchedule(taskId: string, date: string, time: str
 
   if (error) return { error: error.message };
 
-  revalidatePath("/schedule");
-  revalidatePath("/tasks");
-  revalidatePath(`/tasks/${taskId}`);
+  revalidateAll();
   return { error: null };
 }
 
@@ -39,8 +37,7 @@ export async function resizeTaskDuration(taskId: string, durationMinutes: number
 
   if (error) return { error: error.message };
 
-  revalidatePath("/schedule");
-  revalidatePath(`/tasks/${taskId}`);
+  revalidateAll();
   return { error: null };
 }
 
@@ -62,6 +59,6 @@ export async function clearWeek(weekStart: string, weekEnd: string) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/schedule");
+  revalidateAll();
   return { error: null };
 }
