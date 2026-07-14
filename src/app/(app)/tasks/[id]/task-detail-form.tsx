@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { updateTask, deleteTask } from "../actions";
+import { updateTask, deleteTask, duplicateTask } from "../actions";
 import type { Task, LifeArea, SnoozeLog, Subtask, TaskStatus } from "@/lib/types/database";
 
 interface TaskDetailFormProps {
@@ -11,6 +10,7 @@ interface TaskDetailFormProps {
   lifeAreas: Pick<LifeArea, "id" | "name" | "color_hex">[];
   snoozeLogs: SnoozeLog[];
 }
+
 
 export function TaskDetailForm({ task, lifeAreas, snoozeLogs }: TaskDetailFormProps) {
   const router = useRouter();
@@ -24,6 +24,8 @@ export function TaskDetailForm({ task, lifeAreas, snoozeLogs }: TaskDetailFormPr
   const [duration, setDuration] = useState(task.duration_minutes?.toString() ?? "");
   const [subtasks, setSubtasks] = useState<Subtask[]>(task.subtasks ?? []);
   const [newSubtask, setNewSubtask] = useState("");
+  
+
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -45,6 +47,7 @@ export function TaskDetailForm({ task, lifeAreas, snoozeLogs }: TaskDetailFormPr
     fd.set("scheduled_time", time);
     fd.set("duration_minutes", duration);
     fd.set("subtasks", JSON.stringify(subtasks));
+    
 
     const result = await updateTask(fd);
     if (result?.error) {
@@ -85,6 +88,8 @@ export function TaskDetailForm({ task, lifeAreas, snoozeLogs }: TaskDetailFormPr
   function removeSubtask(id: string) {
     setSubtasks(subtasks.filter((s) => s.id !== id));
   }
+  
+
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -203,6 +208,7 @@ export function TaskDetailForm({ task, lifeAreas, snoozeLogs }: TaskDetailFormPr
           </div>
         </div>
 
+
         {/* Description */}
         <div>
           <label htmlFor="td-desc" className="mb-1.5 block text-sm font-medium text-text-secondary">
@@ -218,7 +224,7 @@ export function TaskDetailForm({ task, lifeAreas, snoozeLogs }: TaskDetailFormPr
           />
         </div>
 
-        {/* First step (plain text — AI generation in slice 8) */}
+        {/* First step */}
         <div>
           <label htmlFor="td-step" className="mb-1.5 block text-sm font-medium text-text-secondary">
             First 2-minute step
@@ -326,12 +332,27 @@ export function TaskDetailForm({ task, lifeAreas, snoozeLogs }: TaskDetailFormPr
           </button>
 
           {!confirmDelete ? (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="px-3 py-2 text-sm text-red-400/70 transition-colors hover:text-red-400"
-            >
-              Delete task
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={async () => {
+                  setSaving(true);
+                  const res = await duplicateTask(task.id);
+                  setSaving(false);
+                  if (res?.error) setError(res.error);
+                  else router.push("/schedule");
+                }}
+                disabled={saving}
+                className="px-3 py-2 text-sm text-text-muted transition-colors hover:text-text-primary disabled:opacity-50"
+              >
+                Duplicate
+              </button>
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="px-3 py-2 text-sm text-red-400/70 transition-colors hover:text-red-400"
+              >
+                Delete task
+              </button>
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               <button

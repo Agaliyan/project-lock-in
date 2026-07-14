@@ -18,7 +18,7 @@ interface ScheduleGridProps {
 const PIXELS_PER_HOUR = 60;
 const PIXELS_PER_MINUTE = PIXELS_PER_HOUR / 60;
 
-function TaskBlock({ task }: { task: TaskWithArea }) {
+function TaskBlock({ task, router }: { task: TaskWithArea, router: any }) {
   const [isResizing, setIsResizing] = useState(false);
   const [localDuration, setLocalDuration] = useState(task.duration_minutes || 30);
   
@@ -106,16 +106,16 @@ function TaskBlock({ task }: { task: TaskWithArea }) {
       style={style}
       {...listeners}
       {...attributes}
-      className={`text-xs text-white shadow-sm ${isDragging ? "shadow-md" : ""} transition-colors hover:brightness-110 active:cursor-grabbing`}
+      className={`text-xs text-white shadow-sm ${isDragging ? "shadow-md" : ""} transition-colors hover:brightness-110 active:cursor-grabbing cursor-pointer`}
+      onClick={() => {
+        if (!isDragging) {
+          router.push(`/tasks/${task.id}`);
+        }
+      }}
     >
       <div className="font-semibold leading-tight line-clamp-1">{task.title}</div>
       <div className="flex items-center gap-1 mt-0.5 opacity-80">
         <span className="font-data text-[9px] uppercase tracking-wider">{localDuration}m</span>
-        {task.recurrence_parent_id && task.recurrence_parent_id !== task.id && (
-          <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
-            <path d="M11 4.5A4.5 4.5 0 1012.5 7h-1.5A3 3 0 119.8 4.7L8 6.5h4.5V2l-1.5 2.5z" fill="currentColor"/>
-          </svg>
-        )}
       </div>
 
       {/* Resize handle */}
@@ -131,7 +131,7 @@ function TaskBlock({ task }: { task: TaskWithArea }) {
   );
 }
 
-function DayColumn({ date, label, tasks, onClickSlot }: { date: string, label: string, tasks: TaskWithArea[], onClickSlot: (date: string, hour: number) => void }) {
+function DayColumn({ date, label, tasks, onClickSlot, router }: { date: string, label: string, tasks: TaskWithArea[], onClickSlot: (date: string, hour: number) => void, router: any }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${date}`,
   });
@@ -167,7 +167,7 @@ function DayColumn({ date, label, tasks, onClickSlot }: { date: string, label: s
           />
         ))}
 
-        {tasks.map(t => <TaskBlock key={t.id} task={t} />)}
+        {tasks.map(t => <TaskBlock key={t.id} task={t} router={router} />)}
       </div>
     </div>
   );
@@ -336,6 +336,7 @@ export function ScheduleGrid({ weekStart, scheduledTasks, lifeAreas }: ScheduleG
                 label={day.label} 
                 tasks={scheduledTasks.filter(t => t.scheduled_date === day.date)}
                 onClickSlot={handleSlotClick}
+                router={router}
               />
             ))}
           </div>

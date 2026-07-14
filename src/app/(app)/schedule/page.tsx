@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ScheduleClient } from "./schedule-client";
-import { materializeWeekInstances } from "@/lib/schedule/materialize";
 
 export default async function SchedulePage({
   searchParams,
@@ -30,10 +29,7 @@ export default async function SchedulePage({
   endDate.setDate(endDate.getDate() + 6);
   const weekEnd = endDate.toISOString().split("T")[0];
 
-  // 2. Materialize recurring instances for this week (Safety net)
-  await materializeWeekInstances(supabase, user.id, weekStart, weekEnd);
-
-  // 3. Fetch data
+  // 2. Fetch data
   const [tasksRes, unscheduledRes, areasRes] = await Promise.all([
     supabase
       .from("tasks")

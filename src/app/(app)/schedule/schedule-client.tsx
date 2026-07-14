@@ -6,7 +6,7 @@ import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "
 import type { TaskWithArea, LifeArea } from "@/lib/types/database";
 import { UnscheduledTray } from "./unscheduled-tray";
 import { ScheduleGrid } from "./schedule-grid";
-import { updateTaskSchedule, detachRecurrence } from "./actions";
+import { updateTaskSchedule } from "./actions";
 
 interface ScheduleClientProps {
   scheduledTasks: TaskWithArea[];
@@ -91,15 +91,7 @@ export function ScheduleClient({
       if (!confirm) return;
     }
 
-    // Is it a recurring instance being dragged?
-    const draggedTask = active.data.current?.task as TaskWithArea | undefined;
-    
-    let result;
-    if (draggedTask?.recurrence_parent_id && draggedTask.recurrence_parent_id !== draggedTask.id) {
-      result = await detachRecurrence(taskId, targetDate, timeString);
-    } else {
-      result = await updateTaskSchedule(taskId, targetDate, timeString, taskDuration);
-    }
+    const result = await updateTaskSchedule(taskId, targetDate, timeString, taskDuration);
 
     if (result?.error) {
       setError(result.error);

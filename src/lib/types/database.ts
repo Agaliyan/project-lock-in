@@ -38,9 +38,6 @@ export interface Task {
   scheduled_date: string | null;
   scheduled_time: string | null;
   duration_minutes: number | null;
-  is_recurring: boolean;
-  recurrence_rule: string | null;
-  recurrence_parent_id: string | null;
   subtasks: Subtask[];
   confirmed_at: string | null;
   completed_at: string | null;
@@ -118,9 +115,6 @@ export interface TaskInsert {
   scheduled_date?: string | null;
   scheduled_time?: string | null;
   duration_minutes?: number | null;
-  is_recurring?: boolean;
-  recurrence_rule?: string | null;
-  recurrence_parent_id?: string | null;
   subtasks?: Subtask[];
 }
 
@@ -133,8 +127,6 @@ export interface TaskUpdate {
   scheduled_date?: string | null;
   scheduled_time?: string | null;
   duration_minutes?: number | null;
-  is_recurring?: boolean;
-  recurrence_rule?: string | null;
   subtasks?: Subtask[];
   confirmed_at?: string | null;
   completed_at?: string | null;

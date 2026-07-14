@@ -126,3 +126,62 @@ export async function deleteTask(taskId: string) {
   revalidatePath("/tasks");
   return { error: null };
 }
+
+export async function duplicateTask(id: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  // Fetch existing task
+  const { data: task, error: fetchErr } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
+
+  if (fetchErr || !task) return { error: fetchErr?.message || "Task not found" };
+
+  // Reset subtasks 'done' state if subtasks exist
+  const newSubtasks = Array.isArray(task.subtasks) 
+    ? task.subtasks.map((st: any) => ({ ...st, done: false, id: crypto.randomUUID() }))
+    : [];
+
+  const { error } = await supabase
+    .from("tasks")
+    .insert({
+      user_id: user.id,
+      title: task.title,
+      description: task.description,
+      life_area_id: task.life_area_id,
+      first_step: task.first_step,
+      status: "todo",
+      duration_minutes: task.duration_minutes,
+      subtasks: newSubtasks,
+      // Leave scheduled_date and scheduled_time as null so it lands in Unscheduled Tray
+    });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/tasks");
+  revalidatePath("/schedule");
+  return { error: null };
+}
+
+export async function deleteTasks(ids: string[]) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { error } = await supabase
+    .from("tasks")
+    .delete()
+    .eq("user_id", user.id)
+    .in("id", ids);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/tasks");
+  revalidatePath("/schedule");
+  return { error: null };
+}
