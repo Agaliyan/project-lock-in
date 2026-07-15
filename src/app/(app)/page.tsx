@@ -25,79 +25,80 @@ export default async function RightNowPage() {
   const todayStr = getTodayStr(timezone, now);
   const nowTimeStr = getNowTimeStr(timezone, now);
 
-  // ── 3. Current task — oldest overdue unconfirmed ──
-  // Includes ALL past dates (not just today) so nothing silently falls out
-  // of view when a day rolls over.
-  const { data: currentTaskData } = await supabase
-    .from("tasks")
-    .select("*, life_areas(id, name, color_hex)")
-    .eq("user_id", user.id)
-    .eq("status", "todo")
-    .not("scheduled_date", "is", null)
-    .not("scheduled_time", "is", null)
-    .or(
-      `scheduled_date.lt.${todayStr},and(scheduled_date.eq.${todayStr},scheduled_time.lte.${nowTimeStr})`
-    )
-    .order("scheduled_date", { ascending: true })
-    .order("scheduled_time", { ascending: true })
-    .limit(1);
+  // ── 3. Parallelize remaining task queries ──
+  const [
+    { data: currentTaskData },
+    { count: totalOverdue },
+    { data: laterTodayData },
+    { data: confirmedTasks },
+    { data: doingTasksData }
+  ] = await Promise.all([
+    // Current task
+    supabase
+      .from("tasks")
+      .select("*, life_areas(id, name, color_hex)")
+      .eq("user_id", user.id)
+      .eq("status", "todo")
+      .not("scheduled_date", "is", null)
+      .not("scheduled_time", "is", null)
+      .or(`scheduled_date.lt.${todayStr},and(scheduled_date.eq.${todayStr},scheduled_time.lte.${nowTimeStr})`)
+      .order("scheduled_date", { ascending: true })
+      .order("scheduled_time", { ascending: true })
+      .limit(1),
+
+    // Backlog count
+    supabase
+      .from("tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("status", "todo")
+      .not("scheduled_date", "is", null)
+      .not("scheduled_time", "is", null)
+      .or(`scheduled_date.lt.${todayStr},and(scheduled_date.eq.${todayStr},scheduled_time.lte.${nowTimeStr})`),
+
+    // Later today
+    supabase
+      .from("tasks")
+      .select("*, life_areas(id, name, color_hex)")
+      .eq("user_id", user.id)
+      .eq("status", "todo")
+      .eq("scheduled_date", todayStr)
+      .gt("scheduled_time", nowTimeStr)
+      .order("scheduled_time", { ascending: true })
+      .limit(4),
+
+    // Confirmed tasks (for streak)
+    supabase
+      .from("tasks")
+      .select("confirmed_at")
+      .eq("user_id", user.id)
+      .not("confirmed_at", "is", null),
+
+    // Doing tasks
+    supabase
+      .from("tasks")
+      .select("*, life_areas(id, name, color_hex)")
+      .eq("user_id", user.id)
+      .eq("status", "doing")
+      .order("confirmed_at", { ascending: true })
+  ]);
 
   const currentTask = currentTaskData?.[0] || null;
-
-  // ── 4. Backlog count — same corrected scope ──
-  const { count: totalOverdue } = await supabase
-    .from("tasks")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("status", "todo")
-    .not("scheduled_date", "is", null)
-    .not("scheduled_time", "is", null)
-    .or(
-      `scheduled_date.lt.${todayStr},and(scheduled_date.eq.${todayStr},scheduled_time.lte.${nowTimeStr})`
-    );
-
   const backlogCount = Math.max(0, (totalOverdue || 0) - (currentTask ? 1 : 0));
-
-  // ── 5. Later today — for idle state + Up Next ──
-  // Single query, split afterward: first item is idle-state display
-  // (when no current task); remainder is the Up Next list.
-  const { data: laterTodayData } = await supabase
-    .from("tasks")
-    .select("*, life_areas(id, name, color_hex)")
-    .eq("user_id", user.id)
-    .eq("status", "todo")
-    .eq("scheduled_date", todayStr)
-    .gt("scheduled_time", nowTimeStr)
-    .order("scheduled_time", { ascending: true })
-    .limit(4);
-
   const laterToday = laterTodayData || [];
 
   let nextUpcomingTask = null;
   let upNextTasks;
 
   if (currentTask) {
-    // Current task exists — Up Next is the first 3 later today
     upNextTasks = laterToday.slice(0, 3);
   } else {
-    // Idle state — first later-today task shown as informational,
-    // remainder is Up Next
     nextUpcomingTask = laterToday[0] || null;
     upNextTasks = laterToday.slice(1, 4);
   }
 
-  // ── 6. Streak — consecutive days backward from today with confirmed_at ──
-  const { data: confirmedTasks } = await supabase
-    .from("tasks")
-    .select("confirmed_at")
-    .eq("user_id", user.id)
-    .not("confirmed_at", "is", null);
-
   let streakDays = 0;
-
   if (confirmedTasks && confirmedTasks.length > 0) {
-    // Build a Set of YYYY-MM-DD dates (in the user's timezone)
-    // where at least one task was confirmed
     const confirmedDates = new Set(
       confirmedTasks.map((t) => {
         const d = new Date(t.confirmed_at!);
@@ -110,28 +111,18 @@ export default async function RightNowPage() {
       })
     );
 
-    // Helper: shift a YYYY-MM-DD string by N days
     const addDays = (dateStr: string, days: number): string => {
       const [y, m, d] = dateStr.split("-").map(Number);
       const date = new Date(y, m - 1, d + days);
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     };
 
-    // Count backward from today
     let checkDate = todayStr;
     while (confirmedDates.has(checkDate)) {
       streakDays++;
       checkDate = addDays(checkDate, -1);
     }
   }
-
-  // ── 7. Doing tasks ──
-  const { data: doingTasksData } = await supabase
-    .from("tasks")
-    .select("*, life_areas(id, name, color_hex)")
-    .eq("user_id", user.id)
-    .eq("status", "doing")
-    .order("confirmed_at", { ascending: true });
 
   const doingTasks = doingTasksData || [];
 

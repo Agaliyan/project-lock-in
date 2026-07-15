@@ -18,8 +18,8 @@ SELECT cron.schedule(
   '* * * * *',
   $$
     SELECT net.http_post(
-      url:='[https://cdtfcesdjexrocvklorg.supabase.co]/functions/v1/send-reminders',
-      headers:='{"Authorization": "Bearer [sb_publishable_WQxYxWgDqNNOmu88sSlRew_f-7gUZN3]"}'::jsonb,
+      url:='[YOUR_SUPABASE_URL]/functions/v1/send-reminders',
+      headers:='{"Authorization": "Bearer [YOUR_ANON_KEY]"}'::jsonb,
       body:='{}'::jsonb
     )
   $$

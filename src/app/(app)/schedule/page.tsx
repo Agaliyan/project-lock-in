@@ -13,14 +13,6 @@ export default async function SchedulePage({
     redirect("/login");
   }
 
-  const { data: settings } = await supabase
-    .from("settings")
-    .select("timezone")
-    .eq("user_id", user.id)
-    .single();
-
-  const timezone = settings?.timezone || "Asia/Colombo";
-
   // 1. Determine week start (Monday)
   const resolvedParams = await searchParams;
   let weekStart = resolvedParams.week;
@@ -37,8 +29,19 @@ export default async function SchedulePage({
   endDate.setDate(endDate.getDate() + 6);
   const weekEnd = endDate.toISOString().split("T")[0];
 
-  // 2. Fetch data
-  const [tasksRes, unscheduledRes, areasRes] = await Promise.all([
+  // 2. Fetch data in parallel
+  const [
+    { data: settings },
+    { data: scheduledTasks },
+    { data: unscheduledTasks },
+    { data: lifeAreas }
+  ] = await Promise.all([
+    supabase
+      .from("settings")
+      .select("timezone")
+      .eq("user_id", user.id)
+      .single(),
+    
     supabase
       .from("tasks")
       .select(`
@@ -69,12 +72,14 @@ export default async function SchedulePage({
       .order("position", { ascending: true })
   ]);
 
+  const timezone = settings?.timezone || "Asia/Colombo";
+
   return (
     <ScheduleClient
       weekStart={weekStart}
-      scheduledTasks={tasksRes.data || []}
-      unscheduledTasks={unscheduledRes.data || []}
-      lifeAreas={areasRes.data || []}
+      scheduledTasks={scheduledTasks || []}
+      unscheduledTasks={unscheduledTasks || []}
+      lifeAreas={lifeAreas || []}
       timezone={timezone}
     />
   );
