@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateTask } from "./tasks/actions";
 import { resumeNow } from "./right-now-actions";
 import { SnoozeModal } from "./snooze-modal";
+import { PushSubscriptionBanner } from "@/components/push-subscription-banner";
 import type { TaskWithArea } from "@/lib/types/database";
 
 interface RightNowClientProps {
@@ -143,6 +144,8 @@ export function RightNowClient({
       <h2 className="font-display text-2xl font-semibold tracking-tight text-text-primary mb-6">
         Right Now
       </h2>
+
+      <PushSubscriptionBanner />
 
       {/* ─── Pause banner ─── */}
       {isPaused && (

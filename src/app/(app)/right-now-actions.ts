@@ -84,3 +84,47 @@ export async function resumeNow() {
   revalidateAll();
   return { error: null };
 }
+
+export async function savePushSubscription(subscription: any) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const endpoint = subscription.endpoint;
+  const p256dh_key = subscription.keys?.p256dh;
+  const auth_key = subscription.keys?.auth;
+  // Basic device label based on user agent (optional)
+  // In a server action we don't have direct access to userAgent cleanly, 
+  // we could pass it from the client but let's just default to 'Web Browser'
+  const device_label = "Web Browser";
+
+  if (!endpoint || !p256dh_key || !auth_key) {
+    return { error: "Invalid subscription payload" };
+  }
+
+  // Check if it exists
+  const { data: existing } = await supabase
+    .from("push_subscriptions")
+    .select("id")
+    .eq("endpoint", endpoint)
+    .single();
+
+  if (existing) {
+    // Already subscribed with this endpoint
+    return { error: null };
+  }
+
+  const { error } = await supabase.from("push_subscriptions").insert({
+    user_id: user.id,
+    endpoint,
+    p256dh_key,
+    auth_key,
+    device_label,
+  });
+
+  if (error) return { error: error.message };
+
+  return { error: null };
+}

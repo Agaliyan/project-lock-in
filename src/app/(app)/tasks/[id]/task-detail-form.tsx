@@ -92,7 +92,31 @@ export function TaskDetailForm({ task, lifeAreas, snoozeLogs }: TaskDetailFormPr
 
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <>
+      <div className="mx-auto max-w-sm px-4 pt-10 text-center lg:hidden">
+        <h2 className="font-display text-2xl font-semibold tracking-tight text-text-primary mb-2">
+          {task.title}
+        </h2>
+        <div className="flex items-center justify-center gap-2 mb-6">
+          <span
+            className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: currentArea?.color_hex || "#8B8B8B" }}
+          />
+          <span className="text-sm text-text-muted">{currentArea?.name || "Unknown"}</span>
+        </div>
+        {(task.scheduled_date || task.scheduled_time) && (
+          <p className="text-sm text-text-secondary mb-8">
+            Scheduled for: <span className="font-data text-text-primary">{task.scheduled_time?.slice(0, 5)} {task.scheduled_date}</span>
+          </p>
+        )}
+        <div className="rounded-xl border border-border-default bg-card p-6">
+          <p className="text-sm text-text-muted">
+            To start or manage this task, please open Lock In on your desktop.
+          </p>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-2xl hidden lg:block">
       {/* Header */}
       <div className="mb-6 flex items-center gap-3">
         <button
@@ -371,7 +395,8 @@ export function TaskDetailForm({ task, lifeAreas, snoozeLogs }: TaskDetailFormPr
             </div>
           )}
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
